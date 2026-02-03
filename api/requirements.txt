@@ -1,0 +1,11 @@
+yfinance
+requests
+beautifulsoup4
+pandas
+fastapi
+uvicorn
+openpyxl
+sqlalchemy
+psycopg2-binary
+cloudscraper
+pytz

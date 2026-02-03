@@ -1,0 +1,7 @@
+Report Name,Definition,Relevant Instruments
+WASDE,World Agricultural Supply and Demand Estimates. Monthly report by USDA providing annual forecasts for supply and use of U.S. and world wheat rice coarse grains oilseeds and cotton.,CT=F (Cotton) SB=F (Sugar) ZC=F (Corn) ZW=F (Wheat) ZS=F (Soybeans)
+CPI,Consumer Price Index. Measures the average change over time in the prices paid by urban consumers for a market basket of consumer goods and services.,$USD (DX=F) Gold (GC=F) S&P 500 (ES=F)
+FOMC Meeting,Federal Open Market Committee meeting. Determins the direction of monetary policy specifically interest rates.,$USD (DX=F) 10Y Treasury (ZN=F) All Equities
+Non-Farm Payrolls (NFP),An objective measure of the number of jobs added or lost in the US economy over the last month.,$USD (DX=F) Equities Gold
+EIA Weekly Petroleum Status Report,Provides weekly updates on inventories of crude oil and refined products in the US.,CL=F (Crude Oil) BZ=F (Brent)
+Coffee World Markets and Trade,Bi-annual USDA report on global coffee production supply and demand.,KC=F (Coffee)

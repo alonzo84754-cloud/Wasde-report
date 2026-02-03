@@ -1,0 +1,15 @@
+yfinance
+requests
+beautifulsoup4
+pandas
+numpy
+matplotlib
+seaborn
+jupyter
+fastapi
+uvicorn
+streamlit
+schedule
+openpyxl
+sqlalchemy
+psycopg2-binary
