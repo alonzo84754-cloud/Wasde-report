@@ -7,6 +7,10 @@ import datetime
 import time
 from database_manager import save_to_db, clear_table, execute_query
 from investing_scraper import fetch_investing_calendar
+from price_utils import normalize_yahoo_prices
+
+MIN_MOVE_ECON = float(os.getenv("MIN_MOVE_ECON", "0.001"))
+DEBUG_PRICE_WINDOWS = os.getenv("DEBUG_PRICE_WINDOWS", "").strip().lower() in {"1", "true", "yes", "y"}
 
 def load_local_prices(name, ticker=None):
     """Load prices from previously downloaded CSVs or fetch from yfinance."""
@@ -15,17 +19,20 @@ def load_local_prices(name, ticker=None):
     filepath = f"data/stocks/{filename}_daily.csv"
     if os.path.exists(filepath):
         df = pd.read_csv(filepath)
-        df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
+        df = normalize_yahoo_prices(df)
+        if df is None:
+            print(f"  WARNING: Failed to normalize local prices for {name} ({ticker})")
         return df
     
     # Fallback to yfinance if local file missing
     if ticker:
         try:
-            df = yf.download(ticker, period="2y")
-            if not df.empty:
-                df = df.reset_index()
-                df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
-                return df
+            df = yf.download(ticker, period="2y", progress=False)
+            df = normalize_yahoo_prices(df)
+            if df is None:
+                print(f"  WARNING: Failed to normalize prices for {ticker}")
+                return None
+            return df
         except:
             pass
     return None
@@ -52,10 +59,21 @@ def analyze_economic_failure(events_df):
             
         if mapping.empty:
             continue
-            
-        print(f"Found mapping for {event_name}: {mapping['instrument'].tolist()}")
-            
-        for _, m in mapping.iterrows():
+
+        # De-dupe mapping rows so we don't double-count the same instrument.
+        # We intentionally collapse duplicates down to one row per instrument.
+        if 'instrument' in mapping.columns:
+            mapping_unique = mapping.drop_duplicates(subset=['instrument'], keep='first')
+        else:
+            mapping_unique = mapping.drop_duplicates()
+
+        if 'instrument' in mapping_unique.columns:
+            instruments = list(dict.fromkeys([str(x) for x in mapping_unique['instrument'].tolist()]))
+            print(f"Found mapping for {event_name}: {instruments}")
+        else:
+            print(f"Found mapping for {event_name} ({len(mapping_unique)} rows)")
+
+        for _, m in mapping_unique.iterrows():
             inst_name = m['instrument']
             ticker = m.get('ticker', None)
             
@@ -69,6 +87,12 @@ def analyze_economic_failure(events_df):
             prices = price_cache.get(inst_name)
             if prices is None:
                 continue
+
+            if "Date" not in prices.columns or "Close" not in prices.columns:
+                print(f"  WARNING: Prices not normalized for {inst_name} ({ticker}); columns={list(prices.columns)}")
+                continue
+
+            prices = prices.sort_values('Date').drop_duplicates(subset=['Date'], keep='last')
 
             rule = m['sentiment_rule']
             actual = event['actual']
@@ -88,30 +112,38 @@ def analyze_economic_failure(events_df):
             elif "Actual > Forecast = Bullish" in rule:
                 sentiment = 'Bullish' if actual > forecast else 'Bearish' if actual < forecast else 'Neutral'
             
-            event_date = pd.to_datetime(event['date']).tz_localize(None)
+            event_date = pd.to_datetime(event['date']).date()
             
             # Find closest price action
-            day_before = prices[prices['Date'] < event_date].tail(1)
-            day_of = prices[prices['Date'] >= event_date].head(1)
+            prev_row = prices.loc[prices['Date'] < event_date, ['Date', 'Close']].tail(1)
+            next_row = prices.loc[prices['Date'] >= event_date, ['Date', 'Close']].head(1)
             
-            if day_before.empty or day_of.empty:
+            if prev_row.empty or next_row.empty:
                 # Debug: Why no prices?
                 max_date = prices['Date'].max()
                 min_date = prices['Date'].min()
                 print(f"  Price Gap: Event Date {event_date} | Price Range {min_date} to {max_date}")
 
-            if not day_before.empty and not day_of.empty:
-                p_before = float(day_before['Close'].iloc[0])
-                p_after = float(day_of['Close'].iloc[0])
+            if not prev_row.empty and not next_row.empty:
+                prev_date = prev_row['Date'].iloc[0]
+                next_date = next_row['Date'].iloc[0]
+                p_before = float(prev_row['Close'].iloc[0])
+                p_after = float(next_row['Close'].iloc[0])
                 ret_1d = float((p_after - p_before) / p_before)
+
+                if DEBUG_PRICE_WINDOWS:
+                    print(
+                        f"  Price window {event_name} ({inst_name}): {prev_date} -> {next_date} "
+                        f"(event={event_date})"
+                    )
                 
                 # Detection: News Failure (Price moves opposite to Sentiment)
                 failure = 'NO'
                 reason = 'N/A'
-                if sentiment == 'Bullish' and ret_1d < -0.001: # 0.1% threshold for noise
+                if sentiment == 'Bullish' and ret_1d < -MIN_MOVE_ECON:
                     failure = 'YES'
                     reason = 'News Failure-Bearish'
-                elif sentiment == 'Bearish' and ret_1d > 0.001:
+                elif sentiment == 'Bearish' and ret_1d > MIN_MOVE_ECON:
                     failure = 'YES'
                     reason = 'News Failure-Bullish'
                 elif sentiment == 'Neutral':

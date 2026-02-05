@@ -1,21 +1,107 @@
 import os
-import pandas as pd
 import re
-from datetime import datetime
-from database_manager import save_to_db, clear_table
+from datetime import datetime, date
+
+_MONTHS_FULL = {
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+}
+
+_MONTHS_ABBR = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "sept": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
+
+
+def _year_from_2digits(two_digit_year: int) -> int:
+    # Treat 00-49 as 2000s; 50-99 as 1900s
+    return two_digit_year + (2000 if two_digit_year < 50 else 1900)
+
+
+def extract_release_date(filename: str, content: str) -> date:
+    name = (filename or "").lower()
+
+    for pat in [
+        r"wasde[^0-9]*(\d{2})(\d{2})(\d{4})",
+        r"(?<!\d)(\d{2})(\d{2})(\d{4})(?!\d)",
+    ]:
+        m = re.search(pat, name)
+        if m:
+            mm, dd, yyyy = map(int, m.groups())
+            return datetime(yyyy, mm, dd).date()
+
+    for pat in [
+        r"wasde[^0-9]*(\d{2})(\d{2})(\d{2})",
+        r"(?<!\d)(\d{2})(\d{2})(\d{2})(?!\d)",
+    ]:
+        m = re.search(pat, name)
+        if m:
+            mm, dd, yy = map(int, m.groups())
+            yyyy = _year_from_2digits(yy)
+            return datetime(yyyy, mm, dd).date()
+
+    month_token = "|".join(sorted(set([*list(_MONTHS_FULL.keys()), *list(_MONTHS_ABBR.keys())]), key=len, reverse=True))
+    # NOTE: Don't use \b here because '_' counts as a word character, so "_jul_" would not match.
+    m = re.search(
+        rf"(?<![a-z])({month_token})(?![a-z])[^0-9]*(\d{{1,2}})[^0-9]*(\d{{4}})(?!\d)",
+        name,
+        re.IGNORECASE,
+    )
+    if m:
+        month_str, day_str, year_str = m.groups()
+        month_key = month_str.lower().rstrip(".")
+        month = _MONTHS_FULL.get(month_key) or _MONTHS_ABBR.get(month_key)
+        if month is not None:
+            return datetime(int(year_str), int(month), int(day_str)).date()
+
+    header = "\n".join((content or "").splitlines()[:80])
+
+    release_patterns = [
+        r"For\s+release.*?\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:,)?\s+(\d{4})",
+        r"Released.*?\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:,)?\s+(\d{4})",
+    ]
+
+    for pat in release_patterns:
+        m = re.search(pat, header, re.IGNORECASE | re.DOTALL)
+        if m:
+            month, day, year = m.groups()
+            return datetime(
+                int(year),
+                _MONTHS_FULL[month.lower()],
+                int(day),
+            ).date()
+
+    raise ValueError(f"Could not determine WASDE release date for {filename}")
 
 def parse_wasde_txt(content, filename):
-    date_match = re.search(r'([A-Za-z]+)\s+(20\d{2})', content)
-    if not date_match:
-        match = re.search(r'wasde(\d{2})(\d{2})', filename)
-        if match:
-            month_int, year_int = int(match.group(1)), int("20" + match.group(2))
-            report_date = datetime(year_int, month_int, 1)
-        else: return None
-    else:
-        month_name, year = date_match.group(1), int(date_match.group(2))
-        try: report_date = datetime.strptime(f"{month_name} {year}", "%B %Y")
-        except: return None
+    report_date = extract_release_date(filename, content)
+    # Hard guard: WASDE reports should never be silently defaulted to the 1st.
+    if report_date.day == 1:
+        raise ValueError(f"Suspicious WASDE date (day=1): {report_date} in {filename}")
+
+    if report_date.day == 8:
+        print(f"WARNING: Suspicious WASDE date (day=8): {report_date} from {filename}")
 
     data = {
         'report_date': report_date.strftime('%Y-%m-%d'),
@@ -107,22 +193,38 @@ def parse_wasde_txt(content, filename):
     return data
 
 def process_all_reports():
+    import pandas as pd
+    from database_manager import save_to_db, clear_table
     from data_collection import download_wasde_reports
     # Match data_dir from data_collection
     data_dir = '/tmp/wasde' if os.getenv('VERCEL') else 'data/wasde'
     os.makedirs(data_dir, exist_ok=True)
     download_wasde_reports()
     results = []
+    errors = []
     if os.path.exists(data_dir):
         for f in os.listdir(data_dir):
             if f.endswith('.txt'):
                 with open(os.path.join(data_dir, f), 'r', encoding='utf-8', errors='ignore') as file:
-                    parsed = parse_wasde_txt(file.read(), f)
-                    if parsed: results.append(parsed)
+                    try:
+                        parsed = parse_wasde_txt(file.read(), f)
+                        if parsed:
+                            results.append(parsed)
+                    except Exception as e:
+                        errors.append((f, str(e)))
     if results:
         df = pd.DataFrame(results).sort_values('report_date')
+        df = df.drop_duplicates(subset=['report_date'], keep='last')
         clear_table('wasde_reports')
         save_to_db(df, 'wasde_reports', if_exists='append')
+
+    if errors:
+        print("\nWASDE parsing errors (date extraction):")
+        for fname, err in errors:
+            print(f" - {fname}: {err}")
+
+    if not results:
+        raise RuntimeError("No WASDE reports were parsed successfully. Check the errors above.")
 
 if __name__ == "__main__":
     process_all_reports()

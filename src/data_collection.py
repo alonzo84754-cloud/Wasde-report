@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from bs4 import BeautifulSoup
 import yfinance as yf
@@ -47,17 +48,39 @@ def download_wasde_reports():
             
             found_year_on_page = False
             for a in soup.find_all('a', href=True):
-                text = a.get_text().upper()
                 href = a['href']
-                # Target 2020-2026 reports in TXT format
-                if any(year in text for year in [str(y) for y in range(2020, 2027)]) and "TXT" in text:
-                    full_url = base_url + href if href.startswith('/') else href
-                    filename = href.split('/')[-1]
-                    if filename == 'latest.txt':
-                        date_str = text.split('-')[0].strip().replace(' ', '_').lower()
-                        filename = f"wasde_{date_str}.txt"
-                    txt_links.append((full_url, filename))
-                    found_year_on_page = True
+                if not href.lower().endswith('.txt'):
+                    continue
+
+                # USDA pages include an explicit <time datetime="YYYY-MM-DD..."> inside the link.
+                time_tag = a.find('time')
+                dt_value = time_tag.get('datetime') if time_tag else None
+
+                release_date = None
+                if dt_value:
+                    try:
+                        release_date = datetime.fromisoformat(dt_value.replace('Z', '+00:00')).date()
+                    except Exception:
+                        release_date = None
+
+                # Only target 2020-2026
+                if release_date is None or not (2020 <= release_date.year <= 2026):
+                    continue
+
+                full_url = base_url + href if href.startswith('/') else href
+                orig_filename = href.split('/')[-1]
+
+                # Preserve revision tags like v2 in the saved name.
+                v_tag = None
+                m_v = re.search(r"(v\d+)", orig_filename.lower())
+                if m_v:
+                    v_tag = m_v.group(1)
+
+                mmddyyyy = release_date.strftime('%m%d%Y')
+                filename = f"wasde_{mmddyyyy}{'_' + v_tag if v_tag else ''}.txt"
+
+                txt_links.append((full_url, filename))
+                found_year_on_page = True
             
             if not found_year_on_page and page > 1: # Basic stop condition if we hit very old records
                  pass 
