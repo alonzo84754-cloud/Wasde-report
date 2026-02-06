@@ -1,0 +1,10 @@
+venv/
+data/
+notebooks/
+requirements-dev.txt
+Makefile
+README.md
+scrape_wasde.py
+page0.html
+.git/
+.env

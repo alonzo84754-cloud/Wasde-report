@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+data/wasde/*.txt
+data/wasde/*.pdf
+data/stocks/*.csv
+data/wasde.db
+.DS_Store
+.env
+wasde.db
+.env
+
+.vercel
+*.pem
+*.log
