@@ -36,7 +36,7 @@ view = st.sidebar.radio("Go to", ["WASDE News Failures", "Commodity Deep-Dive", 
 # Fetch Dates for selectors
 # 1. WASDE Dates
 wasde_dates_data = fetch_data("wasde-all")
-if wasde_dates_data:
+if isinstance(wasde_dates_data, list) and wasde_dates_data:
     df_wasde_dates = pd.DataFrame(wasde_dates_data)
     wasde_available_dates = sorted(df_wasde_dates['release_date'].unique(), reverse=True)
 else:
@@ -44,7 +44,7 @@ else:
 
 # 2. Economic Dates
 econ_dates_data = fetch_data("economic-all")
-if econ_dates_data:
+if isinstance(econ_dates_data, list) and econ_dates_data:
     df_econ_dates = pd.DataFrame(econ_dates_data)
     econ_available_dates = sorted(df_econ_dates['release_date'].unique(), reverse=True)
 else:
@@ -155,7 +155,8 @@ def fetch_latest_wasde_status():
         status_map[str(row['commodity']).lower()] = {
             'news_failure': row.get('news_failure', 'NO'),
             'news_sentiment': row.get('news_sentiment', 'Neutral'),
-            'reason': row.get('reason', 'N/A')
+            'reason': row.get('reason', 'N/A'),
+            'release_date': row.get('release_date')
         }
     return status_map
 
@@ -398,7 +399,6 @@ elif view == "Commodity Deep-Dive":
             
             # Highlight selected in timeline
             df_sub_full['is_selected'] = pd.to_datetime(df_sub_full['release_date']).dt.date == selected_date if selected_date else False
-            
             timeline = alt.Chart(df_sub_full).mark_bar().encode(
                 x=alt.X('release_date:T', title='Release Date'),
                 y=alt.Y('return_1d:Q', title='Market Reaction (%)', axis=alt.Axis(format='%')),
@@ -427,7 +427,7 @@ elif view == "Commodity Deep-Dive":
             
             # Update news_failure to be more descriptive if it's a failure
             df_hist['news_failure'] = df_hist.apply(
-                lambda x: x['reason'] if x['news_failure'] == 'YES' and x['reason'] != 'N/A' else x['news_failure'],
+                lambda x: f"Yes: {str(x['reason']).replace('Failure-', 'Failure - ')}" if x['news_failure'] == 'YES' and x['reason'] != 'N/A' else x['news_failure'],
                 axis=1
             )
             df_hist = df_hist.drop(columns=['reason'])
@@ -441,7 +441,8 @@ elif view == "Commodity Deep-Dive":
             st.info(f"No data available for {selected_commodity}.")
 
 elif view == "Economic Event Failures":
-    st.header("📈 Economic Event News Failures")
+    st.header("📈 Economic Event News Failures") # the current system doesnt have release time for the app
+
     
     data = fetch_data("economic-failures")
     if data is not None:
@@ -449,7 +450,8 @@ elif view == "Economic Event Failures":
             st.error(f"Backend Error: {data['error']}")
         else:
             df = pd.DataFrame(data)
-            
+
+
             # Apply Date Filter
             if selected_date:
                 df['release_date_dt'] = pd.to_datetime(df['release_date']).dt.date
@@ -466,10 +468,17 @@ elif view == "Economic Event Failures":
                 # Format release date
                 if 'release_date' in df.columns:
                     df['release_date'] = pd.to_datetime(df['release_date']).dt.strftime('%Y-%m-%d')
+                    # df['release_date'] = pd.to_datetime(df['release_date']).dt.strftime('%b %d, %Y %I:%M %p')
+
                 
                 # Rename for clearer display
+                rename_map = {}
                 if 'news_failure' in df.columns:
-                    df = df.rename(columns={'news_failure': 'News Failure - Status'})
+                    rename_map['news_failure'] = 'News Failure - Status'
+                if 'release_time' in df.columns:
+                    rename_map['release_time'] = 'News Release Time'
+                if rename_map:
+                    df = df.rename(columns=rename_map)
                 
                 # Drop id and reason columns for cleaner look
                 cols_to_drop = ['id', 'reason', 'release_date_dt']
@@ -487,7 +496,7 @@ elif view == "Economic Event Failures":
     else:
         st.warning("No economic failures found or API is offline.")
 
-elif view == "Market Monitor":
+elif view == "Market Monitor": 
     st.header("🕒 Real-time Monitor (Recent Events)")
     st.info("Showing market reactions from the last 24 hours.")
     
@@ -498,7 +507,7 @@ elif view == "Market Monitor":
         else:
             df = pd.DataFrame(data)
             # Fetch latest status for pulse badges
-            latest_wasde_status = fetch_latest_wasde_status()
+            latest_wasde_status = fetch_latest_wasde_status() 
 
             if not df.empty:
                 # Vertical stacking: Each section gets full width
@@ -521,9 +530,10 @@ elif view == "Market Monitor":
                 
                 econ_day = df[df['type'] == 'Economic']
                 if not econ_day.empty:
-                    if not wasde_day.empty:
+                    if not wasde_day.empty:   
                         st.divider()
-                    st.subheader("📈 Economic Releases")
+                        
+                    st.subheader("📈 Economic Releases") 
                     # Drop duplicates based on the pre-formatted name and price
                     econ_day = econ_day.drop_duplicates(subset=['name', 'price'])
                     # Use columns to keep metrics compact within the vertical section
@@ -551,7 +561,7 @@ elif view == "Market Monitor":
                 st.subheader("Live Market Pulse")
                 
                 pulse_data = fetch_pulse_data(TICKERS)
-                
+            
                 # Render pulse data in rows of 5
                 ticker_items = list(TICKERS.items())
                 for i in range(0, len(ticker_items), 5):
@@ -577,6 +587,9 @@ elif view == "Market Monitor":
                                                 if not label or "News Failure" not in label:
                                                     label = "News Failure-Bullish" if status['news_sentiment'] == 'Bearish' else "News Failure-Bearish"
                                                 st.markdown(f"**:red[{label}]**")
+                                                fail_date = status.get('release_date')
+                                                if fail_date:
+                                                    st.caption(f"Identified: {pd.to_datetime(fail_date).strftime('%b %d, %Y %I:%M %p')}")
                                         else:
                                             st.write(f"**{name}**")
                                             st.caption("No price data")
@@ -588,6 +601,7 @@ elif view == "Market Monitor":
                             except Exception as e:
                                 st.write(f"**{name}**")
                                 # st.caption(f"Error: {e}")
+
             else:
                 st.write("No active news events today. Showing general market pulse:")
                 pulse_data = fetch_pulse_data(TICKERS)
@@ -613,6 +627,9 @@ elif view == "Market Monitor":
                                                 if not label or "News Failure" not in label:
                                                     label = "News Failure-Bullish" if status['news_sentiment'] == 'Bearish' else "News Failure-Bearish"
                                                 st.markdown(f"**:red[{label}]**")
+                                                fail_date = status.get('release_date')
+                                                if fail_date:
+                                                    st.caption(f"Identified: {pd.to_datetime(fail_date).strftime('%b %d, %Y %I:%M %p')}")
                                         else:
                                             st.write(f"**{name}**")
                                     else:

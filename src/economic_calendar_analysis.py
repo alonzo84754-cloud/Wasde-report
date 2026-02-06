@@ -133,6 +133,7 @@ def analyze_economic_failure(events_df):
                     'event_name': event_name,
                     'instrument': inst_name,
                     'release_date': event_date.strftime('%Y-%m-%d'),
+                    'release_time': event.get('time', ''),
                     'actual': actual,
                     'forecast': forecast,
                     'news_sentiment': sentiment,
