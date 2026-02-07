@@ -108,6 +108,26 @@ def init_db():
                     UNIQUE(event_name, release_date, instrument)
                 )
             '''))
+             conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS trade_log (
+                    id SERIAL PRIMARY KEY,
+                    signal_type TEXT,
+                    commodity TEXT,
+                    futures_symbol TEXT,
+                    direction TEXT,
+                    quantity INTEGER,
+                    order_type TEXT,
+                    price REAL,
+                    order_id TEXT,
+                    order_status TEXT,
+                    fill_price REAL,
+                    signal_date TEXT,
+                    signal_reason TEXT,
+                    surprise_percent REAL,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            '''))
         else:
             conn.execute(text('''
                 CREATE TABLE IF NOT EXISTS market_reactions (
@@ -148,6 +168,26 @@ def init_db():
                     reason TEXT,
                     summary TEXT,
                     UNIQUE(event_name, release_date, instrument)
+                )
+            '''))
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS trade_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    signal_type TEXT,
+                    commodity TEXT,
+                    futures_symbol TEXT,
+                    direction TEXT,
+                    quantity INTEGER,
+                    order_type TEXT,
+                    price REAL,
+                    order_id TEXT,
+                    order_status TEXT,
+                    fill_price REAL,
+                    signal_date TEXT,
+                    signal_reason TEXT,
+                    surprise_percent REAL,
+                    created_at TEXT,
+                    updated_at TEXT
                 )
             '''))
 

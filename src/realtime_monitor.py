@@ -7,6 +7,9 @@ import os
 
 DB_PATH = 'data/wasde.db'
 
+# Track which commodity+date combos have already triggered trades this session
+_traded_signals = set()
+
 # Instruments to monitor during the 12:00 PM - 4:00 PM window
 MONITOR_LIST = {
     'Cotton': 'CT=F',
@@ -88,6 +91,7 @@ def update_realtime_status(commodity, current_price):
     conn.commit()
     conn.close()
     print(f"Updated {commodity} | Price: {current_price:.2f} | Failure: {failure}")
+
 
 def run_monitor_window():
     """Runs the monitoring loop from 12:00 PM to 4:00 PM."""

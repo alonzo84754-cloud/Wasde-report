@@ -1,11 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 import pandas as pd
 import os
 import sys
 
 # Ensure src is in path for modules
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-from database_manager import execute_query
+from database_manager import execute_query, get_db_url
 
 app = FastAPI(title="WASDE News Failure API")
 
@@ -111,6 +111,8 @@ def cron_process():
         return {"status": "success", "message": "Pipeline completed via Cron"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
 
 if __name__ == "__main__":
     import uvicorn

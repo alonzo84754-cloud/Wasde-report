@@ -31,7 +31,7 @@ def fetch_data(endpoint):
 
 # Sidebar
 st.sidebar.header("Navigation")
-view = st.sidebar.radio("Go to", ["WASDE News Failures", "Commodity Deep-Dive", "Economic Event Failures", "Market Monitor"])
+view = st.sidebar.radio("Go to", ["WASDE News Failures", "Commodity Deep-Dive", "Economic Event Failures", "Market Monitor"], key="nav_view")
 
 # Fetch Dates for selectors
 # 1. WASDE Dates
@@ -56,7 +56,7 @@ all_reports_label = "All Reports"
 st.sidebar.divider()
 st.sidebar.subheader("📅 Date Selection")
 
-if st.sidebar.button("Show All History", use_container_width=True):
+if st.sidebar.button("Show All History", width="stretch"):
     st.session_state.date_selector = all_reports_label
 
 # Context-aware date selector
@@ -119,10 +119,9 @@ DB_NAME_MAP = {
     "Lean Hogs": "lean hogs"
 }
 
-@st.cache_data(ttl=5)
-def fetch_pulse_data(tickers_dict):
+def fetch_pulse_data():
     try:
-        tickers = list(tickers_dict.values())
+        tickers = list(TICKERS.values())
         # Use 7d to ensure news releases from Friday are captured on Monday morning
         data = yf.download(tickers, period="7d", interval="15m", group_by='ticker', progress=False)
         return data
@@ -142,6 +141,7 @@ def fetch_latest_wasde_status():
         for row in econ_data:
             row['commodity'] = row.get('instrument')
             all_rows.append(row)
+
             
     if not all_rows:
         return {}
@@ -159,6 +159,49 @@ def fetch_latest_wasde_status():
             'release_date': row.get('release_date')
         }
     return status_map
+
+@st.fragment(run_every=60)
+def _render_pulse_grid():
+    """Render the Live Market Pulse grid, auto-refreshes every 60 seconds."""
+    est = pytz.timezone('America/New_York')
+    now_est = datetime.datetime.now(est).strftime('%I:%M:%S %p ET')
+    st.caption(f"Last updated: {now_est} — refreshes every 60s")
+    pulse_data = fetch_pulse_data()
+    wasde_status = fetch_latest_wasde_status()
+    ticker_items = list(TICKERS.items())
+    for i in range(0, len(ticker_items), 5):
+        chunk = ticker_items[i:i+5]
+        cols = st.columns(len(chunk))
+        for j, (name, ticker) in enumerate(chunk):
+            with cols[j]:
+                with st.container(height=200, border=True):
+                    try:
+                        if pulse_data is not None and ticker in pulse_data.columns.get_level_values(0):
+                            ticker_df = pulse_data[ticker].dropna()
+                            if not ticker_df.empty:
+                                last_p = float(ticker_df['Close'].iloc[-1])
+                                prev_p = float(ticker_df['Close'].iloc[-2]) if len(ticker_df) > 1 else last_p
+                                change = (last_p - prev_p) / prev_p if len(ticker_df) > 1 else 0
+                                st.metric(name, f"{last_p:.2f}", f"{change:.4%}")
+
+                                db_name = DB_NAME_MAP.get(name, name.lower())
+                                status = wasde_status.get(db_name)
+                                if status and status.get('news_failure') == 'YES':
+                                    label = status.get('reason', '')
+                                    if not label or "News Failure" not in label:
+                                        label = "News Failure-Bullish" if status.get('news_sentiment') == 'Bearish' else "News Failure-Bearish"
+                                    st.markdown(f"**:red[{label}]**")
+                                    fail_date = status.get('release_date')
+                                    if fail_date:
+                                        st.caption(f"{pd.to_datetime(fail_date).strftime('%b %d, %Y %I:%M %p')}")
+                            else:
+                                st.markdown(f"**{name}**")
+                                st.caption("No price data")
+                        else:
+                            st.markdown(f"**{name}**")
+                            st.caption("Awaiting data")
+                    except Exception:
+                        st.markdown(f"**{name}**")
 
 if view == "WASDE News Failures":
     st.header("🌾 WASDE News Failure Analysis")
@@ -213,7 +256,7 @@ if view == "WASDE News Failures":
                         alt.Tooltip('news_failure_label:N', title='Status')
                     ]
                 ).properties(height=300).interactive()
-                st.altair_chart(timeline_all, use_container_width=True)
+                st.altair_chart(timeline_all, width="stretch")
 
                 # Create the descriptive "Yes: News Failure - ..." label
                 if 'news_failure' in df_display.columns and 'reason' in df_display.columns:
@@ -237,7 +280,7 @@ if view == "WASDE News Failures":
                     'surprise': "{:.2f}",
                     'surprise_percent': "{:.2f}%",
                     'return_1d': "{:.2%}"
-                }), use_container_width=True)
+                }), width="stretch")
 
                 # Simple Visualization
                 st.subheader("Surprise (%) vs Market Return")
@@ -256,7 +299,7 @@ elif view == "Commodity Deep-Dive":
     # Fetch ALL data to show the scatter chart with failures highlighted
     wasde_data = fetch_data("wasde-all")
     econ_data = fetch_data("economic-all")
-    
+
     all_rows = []
     if wasde_data:
         all_rows.extend(wasde_data)
@@ -301,7 +344,7 @@ elif view == "Commodity Deep-Dive":
                 # Define Failure Quadrants
                 # Q2: Surprise < 0, Return > 0 (Divergence/Failure)
                 # Q4: Surprise > 0, Return < 0 (Divergence/Failure)
-                
+                      
                 # Show all history in scatter chart for comparison, but maybe highlight selection if any
                 scatter = alt.Chart(df_sub_full).mark_circle(size=100).encode(
                     x=alt.X('surprise_percent:Q', title='News Surprise (%)'),
@@ -314,6 +357,8 @@ elif view == "Commodity Deep-Dive":
                         alt.Tooltip('news_failure_label:N', title='Status'),
                         'summary'
                     ]
+
+
                 ).interactive()
                 
                 # Add quadrant lines
@@ -332,7 +377,7 @@ elif view == "Commodity Deep-Dive":
                     x='x1:Q', x2='x2:Q', y='y1:Q', y2='y2:Q'
                 )
                 
-                st.altair_chart(failures_bg + vline + hline + scatter, use_container_width=True)
+                st.altair_chart(failures_bg + vline + hline + scatter, width="stretch")
                 st.info("Red zones indicate 'News Failures' (Divergent behavior).")
 
             with col_price:
@@ -355,6 +400,7 @@ elif view == "Commodity Deep-Dive":
                     
                     st.divider()
                     st.write(f"**{selected_commodity} Price Action**")
+
                     
                     # Period Selector
                     period_map = {
@@ -371,7 +417,7 @@ elif view == "Commodity Deep-Dive":
                         
                     cols_p = st.columns(len(period_map))
                     for i, p in enumerate(period_map.keys()):
-                        if cols_p[i].button(p, use_container_width=True, type="primary" if st.session_state.chart_period == p else "secondary"):
+                        if cols_p[i].button(p, width="stretch", type="primary" if st.session_state.chart_period == p else "secondary"):
                             st.session_state.chart_period = p
                             st.rerun()
 
@@ -385,9 +431,9 @@ elif view == "Commodity Deep-Dive":
                             
                             # Line chart for most, Area chart specifically for 1Y
                             if st.session_state.chart_period == "1Y":
-                                st.area_chart(hist['Close'], use_container_width=True)
+                                st.area_chart(hist['Close'], width="stretch")
                             else:
-                                st.line_chart(hist['Close'], use_container_width=True)
+                                st.line_chart(hist['Close'], width="stretch")
                     except Exception as e:
                         st.error(f"Error: {e}")
                 else:
@@ -415,7 +461,7 @@ elif view == "Commodity Deep-Dive":
                 ]
             ).properties(height=300).interactive()
             
-            st.altair_chart(timeline, use_container_width=True)
+            st.altair_chart(timeline, width="stretch")
             st.caption("Red bars signify historical days where the market failed to react as expected to the news (News Failure). Blue bars are aligned reactions. Orange highlights your current selection.")
 
             st.subheader("Historical Reactions")
@@ -436,7 +482,7 @@ elif view == "Commodity Deep-Dive":
             st.dataframe(df_hist.style.format({
                 'return_1d': "{:.4%}",
                 'surprise_percent': "{:.4f}%"
-            }), use_container_width=True)
+            }), width="stretch")
         else:
             st.info(f"No data available for {selected_commodity}.")
 
@@ -490,7 +536,7 @@ elif view == "Economic Event Failures":
                     'forecast': "{:.2f}",
                     'price_before': "{:.2f}",
                     'price_after': "{:.2f}"
-                }), use_container_width=True)
+                }), width="stretch")
             else:
                 st.info("No economic failures detected yet.")
     else:
@@ -514,44 +560,40 @@ elif view == "Market Monitor":
                 wasde_day = df[df['type'] == 'WASDE']
                 if not wasde_day.empty:
                     st.subheader("🌾 Commodity Releases")
-                    # Use columns to keep metrics compact within the vertical section
                     for i in range(0, len(wasde_day), 3):
                         chunk = wasde_day.iloc[i:i+3]
                         cols = st.columns(3)
                         for j, (_, row) in enumerate(chunk.iterrows()):
                             with cols[j]:
-                                color = "normal" if str(row['news_failure']).upper() == 'NO' else "inverse"
-                                st.metric(f"{row['name'].capitalize()}", f"${row['price']:.2f}", f"{row['return_1d']:.4%}", delta_color=color)
-                                if str(row['news_failure']).upper() == 'YES':
-                                    label = row.get('reason')
-                                    if not label or "News Failure" not in label:
-                                        label = "News Failure-Bullish" if row.get('news_sentiment') == 'Bearish' else "News Failure-Bearish"
-                                    st.markdown(f"**:red[{label}]**")
-                
+                                with st.container(height=200, border=True):
+                                    color = "normal" if str(row['news_failure']).upper() == 'NO' else "inverse"
+                                    st.metric(f"{row['name'].capitalize()}", f"${row['price']:.2f}", f"{row['return_1d']:.4%}", delta_color=color)
+                                    if str(row['news_failure']).upper() == 'YES':
+                                        label = row.get('reason')
+                                        if not label or "News Failure" not in label:
+                                            label = "News Failure-Bullish" if row.get('news_sentiment') == 'Bearish' else "News Failure-Bearish"
+                                        st.markdown(f"**:red[{label}]**")
+
                 econ_day = df[df['type'] == 'Economic']
                 if not econ_day.empty:
-                    if not wasde_day.empty:   
+                    if not wasde_day.empty:
                         st.divider()
-                        
-                    st.subheader("📈 Economic Releases") 
-                    # Drop duplicates based on the pre-formatted name and price
+
+                    st.subheader("📈 Economic Releases")
                     econ_day = econ_day.drop_duplicates(subset=['name', 'price'])
-                    # Use columns to keep metrics compact within the vertical section
                     for i in range(0, len(econ_day), 3):
                         chunk = econ_day.iloc[i:i+3]
                         cols = st.columns(3)
                         for j, (_, row) in enumerate(chunk.iterrows()):
                             with cols[j]:
-                                # Highlight failures with inverse color logic
-                                color = "normal" if str(row['news_failure']).upper() == 'NO' else "inverse"
-                                # name is already formatted as "Event (Instrument)" by the API
-                                st.metric(f"{row['name']}", f"{row['price']:.2f}", f"{row['return_1d']:.4%}", delta_color=color)
-                                
-                                if str(row['news_failure']).upper() == 'YES':
-                                    label = row.get('reason')
-                                    if not label or label == 'N/A' or label == '':
-                                        label = "News Failure"
-                                    st.markdown(f"**:red[{label}]**")
+                                with st.container(height=200, border=True):
+                                    color = "normal" if str(row['news_failure']).upper() == 'NO' else "inverse"
+                                    st.metric(f"{row['name']}", f"{row['price']:.2f}", f"{row['return_1d']:.4%}", delta_color=color)
+                                    if str(row['news_failure']).upper() == 'YES':
+                                        label = row.get('reason')
+                                        if not label or label == 'N/A' or label == '':
+                                            label = "News Failure"
+                                        st.markdown(f"**:red[{label}]**")
                 
                 if wasde_day.empty and econ_day.empty:
                     st.info("No recent reports in the last 24-48 hours.")
@@ -559,85 +601,12 @@ elif view == "Market Monitor":
                 # Add a "Real-Time Ticker" at the bottom
                 st.divider()
                 st.subheader("Live Market Pulse")
-                
-                pulse_data = fetch_pulse_data(TICKERS)
-            
-                # Render pulse data in rows of 5
-                ticker_items = list(TICKERS.items())
-                for i in range(0, len(ticker_items), 5):
-                    chunk = ticker_items[i:i+5]
-                    cols = st.columns(len(chunk))
-                    for j, (name, ticker) in enumerate(chunk):
-                        with cols[j]:
-                            try:
-                                if pulse_data is not None:
-                                    if ticker in pulse_data.columns.get_level_values(0):
-                                        ticker_df = pulse_data[ticker].dropna()
-                                        if not ticker_df.empty:
-                                            last_p = float(ticker_df['Close'].iloc[-1])
-                                            prev_p = float(ticker_df['Close'].iloc[-2]) if len(ticker_df) > 1 else last_p
-                                            change = (last_p - prev_p) / prev_p if len(ticker_df) > 1 else 0
-                                            st.metric(name, f"{last_p:.2f}", f"{change:.4%}")
-                                            
-                                            # Add News Failure Badge
-                                            db_name = DB_NAME_MAP.get(name, name.lower())
-                                            status = latest_wasde_status.get(db_name)
-                                            if status and status.get('news_failure') == 'YES':
-                                                label = status.get('reason')
-                                                if not label or "News Failure" not in label:
-                                                    label = "News Failure-Bullish" if status['news_sentiment'] == 'Bearish' else "News Failure-Bearish"
-                                                st.markdown(f"**:red[{label}]**")
-                                                fail_date = status.get('release_date')
-                                                if fail_date:
-                                                    st.caption(f"Identified: {pd.to_datetime(fail_date).strftime('%b %d, %Y %I:%M %p')}")
-                                        else:
-                                            st.write(f"**{name}**")
-                                            st.caption("No price data")
-                                    else:
-                                        st.write(f"**{name}**")
-                                        st.caption("Ticker missing")
-                                else:
-                                    st.write(f"**{name}**")
-                            except Exception as e:
-                                st.write(f"**{name}**")
-                                # st.caption(f"Error: {e}")
+
+                _render_pulse_grid()
 
             else:
                 st.write("No active news events today. Showing general market pulse:")
-                pulse_data = fetch_pulse_data(TICKERS)
-                ticker_items = list(TICKERS.items())
-                for i in range(0, len(ticker_items), 5):
-                    chunk = ticker_items[i:i+5]
-                    cols = st.columns(len(chunk))
-                    for j, (name, ticker) in enumerate(chunk):
-                        with cols[j]:
-                            if pulse_data is not None:
-                                try:
-                                    if ticker in pulse_data.columns.get_level_values(0):
-                                        ticker_df = pulse_data[ticker].dropna()
-                                        if not ticker_df.empty:
-                                            last_p = float(ticker_df['Close'].iloc[-1])
-                                            st.metric(name, f"{last_p:.2f}")
-                                            
-                                            # Add News Failure Badge
-                                            db_name = DB_NAME_MAP.get(name, name.lower())
-                                            status = latest_wasde_status.get(db_name)
-                                            if status and status.get('news_failure') == 'YES':
-                                                label = status.get('reason')
-                                                if not label or "News Failure" not in label:
-                                                    label = "News Failure-Bullish" if status['news_sentiment'] == 'Bearish' else "News Failure-Bearish"
-                                                st.markdown(f"**:red[{label}]**")
-                                                fail_date = status.get('release_date')
-                                                if fail_date:
-                                                    st.caption(f"Identified: {pd.to_datetime(fail_date).strftime('%b %d, %Y %I:%M %p')}")
-                                        else:
-                                            st.write(f"**{name}**")
-                                    else:
-                                        st.write(f"**{name}**")
-                                except:
-                                    st.write(f"**{name}**")
-                            else:
-                                st.write(f"**{name}**")
+                _render_pulse_grid()
     else:
         st.error("Failed to fetch real-time monitoring data.")
 
