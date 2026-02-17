@@ -1,10 +1,13 @@
 import pandas as pd
 import numpy as np
 import os
-import time
-import yfinance as yf
 from datetime import datetime
-from database_manager import save_to_db, load_from_db, clear_table
+from sqlalchemy.exc import OperationalError
+from database_manager import load_from_db, replace_table_data
+from tastytrade_client import get_historical_prices
+from resilience import get_logger
+
+logger = get_logger("market_analysis")
 
 # WASDE Release Dates for 2026 (typically 12:00 PM ET)
 WASDE_DATES = {
@@ -24,61 +27,38 @@ WASDE_DATES = {
     }
 }
 
-def fetch_price_data(ticker, max_retries=3):
-    """Fetch historical price data with retry logic and fallback methods."""
-    for attempt in range(max_retries):
-        try:
-            # Primary method: yf.Ticker().history() - more reliable for futures
-            t = yf.Ticker(ticker)
-            price_df = t.history(start="2020-01-01", auto_adjust=True)
-            if not price_df.empty:
-                price_df = price_df.reset_index()
-                price_df["Date"] = pd.to_datetime(price_df["Date"]).dt.tz_localize(None)
-                price_df = price_df.sort_values("Date")
-                print(f"  -> Got {len(price_df)} rows via Ticker.history()")
-                return price_df
-        except Exception as e:
-            print(f"  Attempt {attempt + 1} Ticker.history() failed: {e}")
 
-        try:
-            # Fallback: yf.download()
-            price_df = yf.download(ticker, start="2020-01-01", progress=False)
-            if not price_df.empty:
-                price_df = price_df.reset_index()
-                if isinstance(price_df.columns, pd.MultiIndex):
-                    price_df.columns = price_df.columns.get_level_values(0)
-                price_df["Date"] = pd.to_datetime(price_df["Date"]).dt.tz_localize(None)
-                price_df = price_df.sort_values("Date")
-                print(f"  -> Got {len(price_df)} rows via yf.download()")
-                return price_df
-        except Exception as e:
-            print(f"  Attempt {attempt + 1} yf.download() failed: {e}")
-
-        if attempt < max_retries - 1:
-            wait = 3 * (attempt + 1)
-            print(f"  Retrying in {wait}s...")
-            time.sleep(wait)
-
+def fetch_price_data(ticker):
+    """Fetch historical price data from Tastytrade."""
+    days_back = (datetime.now() - datetime(2020, 1, 1)).days
+    price_df = get_historical_prices(ticker, days_back=days_back)
+    if price_df is not None and not price_df.empty:
+        price_df = price_df.sort_values("Date")
+        return price_df
     return None
 
 
 def run_full_analysis():
     analyze_reactions()
 
+
 def analyze_reactions():
     """Analyze relationship between WASDE surprises and 1-day market returns."""
     try:
         wasde_df = load_from_db("wasde_reports")
+    except OperationalError as e:
+        logger.error("Database error loading wasde_reports: %s", e)
+        return
     except Exception as e:
-        print(f"Error loading wasde_reports: {e}")
+        logger.error("Error loading wasde_reports: %s", e)
         return
 
     if wasde_df.empty:
-        print("No WASDE reports found in database. Run wasde_parser.py first.")
+        logger.warning("No WASDE reports found in database. Run wasde_parser.py first.")
         return
 
     wasde_df["report_date"] = pd.to_datetime(wasde_df["report_date"])
-    print(f"Loaded {len(wasde_df)} WASDE reports")
+    logger.info("Loaded %d WASDE reports", len(wasde_df))
 
     commodities = {
         "cotton": "CT=F",
@@ -98,13 +78,11 @@ def analyze_reactions():
     fail_count = 0
 
     for commodity, ticker in commodities.items():
-        print(f"\nAnalyzing {commodity} ({ticker})...")
+        logger.info("Analyzing %s (%s)...", commodity, ticker)
         price_df = fetch_price_data(ticker)
         if price_df is None or price_df.empty:
-            print(f"  SKIPPED - no price data available for {ticker}")
+            logger.warning("SKIPPED - no price data available for %s", ticker)
             fail_count += 1
-            # Add a delay before the next ticker to avoid rate limiting
-            time.sleep(2)
             continue
 
         success_count += 1
@@ -129,7 +107,8 @@ def analyze_reactions():
                 proj_val = row[proj_col] if proj_col in row else np.nan
                 act_val = row[act_col] if act_col in row else np.nan
 
-                if pd.isna(proj_val) or pd.isna(act_val): continue
+                if pd.isna(proj_val) or pd.isna(act_val):
+                    continue
 
                 surprise = act_val - proj_val
                 surprise_percent = (surprise / proj_val * 100) if proj_val != 0 else 0
@@ -151,9 +130,6 @@ def analyze_reactions():
                 res["news_failure"] = "NO"
                 res["reason"] = "N/A"
 
-                # Check for failure
-                # Good news (Bullish) > Price down = "News Failure-Bearish"
-                # Bad news (Bearish) > Price up = "News Failure-Bullish"
                 if res["news_sentiment"] == "Bullish" and res["return_1d"] < 0:
                     res["news_failure"] = "YES"
                     res["reason"] = "News Failure-Bearish"
@@ -161,7 +137,6 @@ def analyze_reactions():
                     res["news_failure"] = "YES"
                     res["reason"] = "News Failure-Bullish"
 
-                # Generate Summary
                 s_val = res["surprise"]
                 s_pct = res["surprise_percent"]
                 direction = "lower" if s_val < 0 else "higher" if s_val > 0 else "unchanged"
@@ -175,27 +150,22 @@ def analyze_reactions():
                 report_results.append(res)
                 matched += 1
 
-        print(f"  -> {matched} data points generated for {commodity}")
-        # Delay between tickers to avoid Yahoo rate limiting
-        time.sleep(2)
+        logger.info("  -> %d data points generated for %s", matched, commodity)
 
-    print(f"\n=== Summary ===")
-    print(f"Tickers fetched: {success_count}/{len(commodities)}")
-    print(f"Tickers failed: {fail_count}/{len(commodities)}")
-    print(f"Total data points: {len(report_results)}")
+    logger.info("=== Summary ===")
+    logger.info("Tickers fetched: %d/%d", success_count, len(commodities))
+    logger.info("Tickers failed: %d/%d", fail_count, len(commodities))
+    logger.info("Total data points: %d", len(report_results))
 
     if report_results:
         results_df = pd.DataFrame(report_results)
-        clear_table("market_reactions")
-        save_to_db(results_df, "market_reactions", if_exists="replace")
-        print(f"Saved {len(results_df)} rows to market_reactions table")
+        replace_table_data(results_df, "market_reactions")
+        logger.info("Saved %d rows to market_reactions table", len(results_df))
         failures = results_df[results_df["news_failure"] == "YES"]
-        print(f"News failures detected: {len(failures)}")
+        logger.info("News failures detected: %d", len(failures))
     else:
-        print("\nWARNING: No data points generated!")
-        print("This usually means Yahoo Finance is blocking requests.")
-        print("Try: pip install --upgrade yfinance")
-        print("Then run this script again.")
+        logger.warning("No data points generated! Check TT credentials or Yahoo Finance connectivity.")
+
 
 if __name__ == "__main__":
     analyze_reactions()

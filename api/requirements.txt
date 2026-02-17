@@ -1,4 +1,4 @@
-yfinance
+tastytrade
 requests
 beautifulsoup4
 pandas

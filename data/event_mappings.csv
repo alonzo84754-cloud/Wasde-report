@@ -1,63 +1,121 @@
 event_name,instrument,ticker,sentiment_rule
-CPI,ES,ES=F,Actual < Forecast = Bullish
-CPI,ZN,ZN=F,Actual < Forecast = Bullish
-Core CPI,ES,ES=F,Actual < Forecast = Bullish
-Core CPI,ZN,ZN=F,Actual < Forecast = Bullish
+CPI (YoY),ES,ES=F,Actual < Forecast = Bullish
+CPI (YoY),ZN,ZN=F,Actual < Forecast = Bullish
+CPI (MoM),ES,ES=F,Actual < Forecast = Bullish
+CPI (MoM),ZN,ZN=F,Actual < Forecast = Bullish
+Core CPI (YoY),ES,ES=F,Actual < Forecast = Bullish
+Core CPI (YoY),ZN,ZN=F,Actual < Forecast = Bullish
+Core CPI (MoM),ES,ES=F,Actual < Forecast = Bullish
+Core CPI (MoM),ZN,ZN=F,Actual < Forecast = Bullish
 PCE Price Index,ZN,ZN=F,Actual < Forecast = Bullish
 PCE Price Index,ES,ES=F,Actual < Forecast = Bullish
 Core PCE Price Index,ES,ES=F,Actual < Forecast = Bullish
 Core PCE Price Index,ZN,ZN=F,Actual < Forecast = Bullish
-Producer Price Index,ES,ES=F,Actual < Forecast = Bullish
-Producer Price Index,ZN,ZN=F,Actual < Forecast = Bullish
-PPI,ES,ES=F,Actual < Forecast = Bullish
-PPI,ZN,ZN=F,Actual < Forecast = Bullish
-Core PPI,ES,ES=F,Actual < Forecast = Bullish
-Core PPI,ZN,ZN=F,Actual < Forecast = Bullish
+PPI (MoM),ES,ES=F,Actual < Forecast = Bullish
+PPI (MoM),ZN,ZN=F,Actual < Forecast = Bullish
+PPI (YoY),ES,ES=F,Actual < Forecast = Bullish
+PPI (YoY),ZN,ZN=F,Actual < Forecast = Bullish
+Core PPI (MoM),ES,ES=F,Actual < Forecast = Bullish
+Core PPI (MoM),ZN,ZN=F,Actual < Forecast = Bullish
+Core PPI (YoY),ES,ES=F,Actual < Forecast = Bullish
+Core PPI (YoY),ZN,ZN=F,Actual < Forecast = Bullish
 PPI Final Demand,ES,ES=F,Actual < Forecast = Bullish
-PPI ex. Food/Energy/Transport,ES,ES=F,Actual < Forecast = Bullish
+PPI ex. Food/Energy/Transport (MoM),ES,ES=F,Actual < Forecast = Bullish
+PPI ex. Food/Energy/Transport (YoY),ES,ES=F,Actual < Forecast = Bullish
 Employment Cost Index,ES,ES=F,Actual < Forecast = Bullish
 Employment Cost Index,ZN,ZN=F,Actual < Forecast = Bullish
-Non-Farm Payrolls (NFP),ES,ES=F,Actual > Forecast = Bullish
-Non-Farm Payrolls (NFP),ZN,ZN=F,Actual > Forecast = Bullish
+Nonfarm Payrolls,ES,ES=F,Actual > Forecast = Bullish
+Nonfarm Payrolls,ZN,ZN=F,Actual > Forecast = Bullish
+ADP Nonfarm Employment Change,ES,ES=F,Actual > Forecast = Bullish
+ADP Nonfarm Employment Change,ZN,ZN=F,Actual > Forecast = Bullish
 Unemployment Rate,ES,ES=F,Actual < Forecast = Bullish
 Unemployment Rate,ZN,ZN=F,Actual < Forecast = Bullish
-Avg Hourly Earnings,ES,ES=F,Actual > Forecast = Bullish
-Avg Hourly Earnings,ZN,ZN=F,Actual > Forecast = Bullish
+Average Hourly Earnings,ES,ES=F,Actual > Forecast = Bullish
+Average Hourly Earnings,ZN,ZN=F,Actual > Forecast = Bullish
 Initial Jobless Claims,ES,ES=F,Actual < Forecast = Bullish
 Initial Jobless Claims,ZN,ZN=F,Actual < Forecast = Bullish
-Continuing Claims,ZN,ZN=F,Actual < Forecast = Bullish
-JOLTS – Job Openings,ZN,ZN=F,Actual > Forecast = Bullish
-Retail Sales (Headline),ES,ES=F,Actual > Forecast = Bullish
-Personal Income,ES,ES=F,Actual > Forecast = Bullish
-Personal Spending,ES,ES=F,Actual > Forecast = Bullish
-Durable Goods (Headline),ES,ES=F,Actual > Forecast = Bullish
-Durable Goods (Headline),ZN,ZN=F,Actual > Forecast = Bullish
+Continuing Jobless Claims,ZN,ZN=F,Actual < Forecast = Bullish
+Continuing Jobless Claims,ES,ES=F,Actual < Forecast = Bullish
+JOLTS Job Openings,ZN,ZN=F,Actual > Forecast = Bullish
+JOLTS Job Openings,ES,ES=F,Actual > Forecast = Bullish
+Retail Sales (MoM),ES,ES=F,Actual > Forecast = Bullish
+Retail Sales (MoM),ZN,ZN=F,Actual < Forecast = Bullish
+Core Retail Sales (MoM),ES,ES=F,Actual > Forecast = Bullish
+Personal Income (MoM),ES,ES=F,Actual > Forecast = Bullish
+Personal Spending (MoM),ES,ES=F,Actual > Forecast = Bullish
+Durable Goods Orders,ES,ES=F,Actual > Forecast = Bullish
+Durable Goods Orders,ZN,ZN=F,Actual > Forecast = Bullish
+Durables Excluding Defense (MoM),ES,ES=F,Actual > Forecast = Bullish
+Durables Excluding Transport (MoM),ES,ES=F,Actual > Forecast = Bullish
+Factory Orders (MoM),ES,ES=F,Actual > Forecast = Bullish
 ISM Manufacturing PMI,ES,ES=F,Actual > Forecast = Bullish
 ISM Manufacturing PMI,ZN,ZN=F,Actual > Forecast = Bullish
-ISM Services PMI,ES,ES=F,Actual > Forecast = Bullish
-ISM Services PMI,ZN,ZN=F,Actual > Forecast = Bullish
-ISM New Orders,ES,ES=F,Actual > Forecast = Bullish
-ISM Prices Paid,ZN,ZN=F,Actual > Forecast = Bullish
+ISM Manufacturing Employment,ES,ES=F,Actual > Forecast = Bullish
+ISM Manufacturing New Orders,ES,ES=F,Actual > Forecast = Bullish
+ISM Manufacturing Prices,ZN,ZN=F,Actual < Forecast = Bullish
+ISM Non-Manufacturing PMI,ES,ES=F,Actual > Forecast = Bullish
+ISM Non-Manufacturing PMI,ZN,ZN=F,Actual > Forecast = Bullish
+ISM Non-Manufacturing Employment,ES,ES=F,Actual > Forecast = Bullish
+ISM Non-Manufacturing New Orders,ES,ES=F,Actual > Forecast = Bullish
+ISM Non-Manufacturing Prices,ZN,ZN=F,Actual < Forecast = Bullish
+ISM Non-Manufacturing Business Activity,ES,ES=F,Actual > Forecast = Bullish
+S&P Global Manufacturing PMI,ES,ES=F,Actual > Forecast = Bullish
+S&P Global Services PMI,ES,ES=F,Actual > Forecast = Bullish
+S&P Global Composite PMI,ES,ES=F,Actual > Forecast = Bullish
+Chicago PMI,ES,ES=F,Actual > Forecast = Bullish
+Michigan Consumer Sentiment,ES,ES=F,Actual > Forecast = Bullish
+Michigan Consumer Expectations,ES,ES=F,Actual > Forecast = Bullish
+Michigan Current Conditions,ES,ES=F,Actual > Forecast = Bullish
+Michigan 1-Year Inflation Expectations,ZN,ZN=F,Actual < Forecast = Bullish
+Michigan 5-Year Inflation Expectations,ZN,ZN=F,Actual < Forecast = Bullish
+Consumer Confidence,ES,ES=F,Actual > Forecast = Bullish
+Consumer Credit,ES,ES=F,Actual > Forecast = Bullish
+IBD/TIPP Economic Optimism,ES,ES=F,Actual > Forecast = Bullish
 Housing Starts,ZN,ZN=F,Actual > Forecast = Bullish
+Housing Starts,ES,ES=F,Actual > Forecast = Bullish
 Building Permits,ZN,ZN=F,Actual > Forecast = Bullish
 New Home Sales,ZN,ZN=F,Actual > Forecast = Bullish
-MBA Mortgage Rates,ZN,ZN=F,Actual > Forecast = Bullish
+New Home Sales,ES,ES=F,Actual > Forecast = Bullish
+Existing Home Sales,ES,ES=F,Actual > Forecast = Bullish
+Pending Home Sales (MoM),ES,ES=F,Actual > Forecast = Bullish
+MBA Mortgage Applications,ZN,ZN=F,Actual > Forecast = Bullish
 MBA Purchase Index,ZN,ZN=F,Actual > Forecast = Bullish
-Credit Spreads (HY / IG),ES,ES=F,Actual > Forecast = Bullish
-Bank Loan Growth,ES,ES=F,Actual > Forecast = Bullish
-"Treasury Auctions (2y,5y,10y,30y)",ZN,ZN=F,Actual > Forecast = Bullish
-"Yield Curve (2s10s,5s30s)",ES,ES=F,Actual > Forecast = Bullish
-"Yield Curve (2s10s,5s30s)",ZN,ZN=F,Actual > Forecast = Bullish
-Fed Balance Sheet,ES,ES=F,Actual > Forecast = Bullish
-Reverse Repo (RRP),ES,ES=F,Actual > Forecast = Bullish
-Treasury General Account (TGA),ES,ES=F,Actual > Forecast = Bullish
+Nonfarm Productivity (QoQ),ES,ES=F,Actual > Forecast = Bullish
+Unit Labor Costs (QoQ),ZN,ZN=F,Actual < Forecast = Bullish
+Unit Labor Costs (QoQ),ES,ES=F,Actual < Forecast = Bullish
+Trade Balance,ES,ES=F,Actual > Forecast = Bullish
+GDP (QoQ),ES,ES=F,Actual > Forecast = Bullish
+GDP (QoQ),ZN,ZN=F,Actual > Forecast = Bullish
+GDP Price Index (QoQ),ZN,ZN=F,Actual < Forecast = Bullish
+Atlanta Fed GDPNow,ES,ES=F,Actual > Forecast = Bullish
+Industrial Production (MoM),ES,ES=F,Actual > Forecast = Bullish
+Capacity Utilization Rate,ES,ES=F,Actual > Forecast = Bullish
+Wholesale Inventories (MoM),ES,ES=F,Actual < Forecast = Bullish
+Fed Interest Rate Decision,ES,ES=F,Actual < Forecast = Bullish
+Fed Interest Rate Decision,ZN,ZN=F,Actual < Forecast = Bullish
 EIA Crude Oil Inventories,Crude Oil,CL=F,Actual < Forecast = Bullish
 Crude Oil Inventories,Crude Oil,CL=F,Actual < Forecast = Bullish
+API Weekly Crude Oil Stock,Crude Oil,CL=F,Actual < Forecast = Bullish
+Cushing Crude Oil Inventories,Crude Oil,CL=F,Actual < Forecast = Bullish
 Gasoline Inventories,Gasoline,RB=F,Actual < Forecast = Bullish
-Heating Oil Stockpiles,Heating Oil,HO=F,Actual < Forecast = Bullish
-Natural Gas Storage,Natural Gas,NG=F,Actual > Forecast = Bullish
 EIA Gasoline Inventories,Gasoline,RB=F,Actual < Forecast = Bullish
+Heating Oil Stockpiles,Heating Oil,HO=F,Actual < Forecast = Bullish
 EIA Weekly Distillates Stocks,Heating Oil,HO=F,Actual < Forecast = Bullish
 EIA Distillate Inventories,Heating Oil,HO=F,Actual < Forecast = Bullish
 Distillate Fuel Inventories,Heating Oil,HO=F,Actual < Forecast = Bullish
+Natural Gas Storage,Natural Gas,NG=F,Actual > Forecast = Bullish
 EIA Natural Gas Storage,Natural Gas,NG=F,Actual > Forecast = Bullish
+Baker Hughes Oil Rig Count,Crude Oil,CL=F,Actual < Forecast = Bullish
+U.S. Baker Hughes Total Rig Count,Crude Oil,CL=F,Actual < Forecast = Bullish
+CFTC S&P 500 speculative net positions,ES,ES=F,Actual > Forecast = Bullish
+CFTC Nasdaq 100 speculative net positions,NQ,NQ=F,Actual > Forecast = Bullish
+CFTC Gold speculative net positions,Gold,GC=F,Actual > Forecast = Bullish
+CFTC Crude Oil speculative net positions,Crude Oil,CL=F,Actual > Forecast = Bullish
+CB Consumer Confidence,ES,ES=F,Actual > Forecast = Bullish
+NY Fed 1-Year Consumer Inflation Expectations,ZN,ZN=F,Actual < Forecast = Bullish
+NY Fed 1-Year Consumer Inflation Expectations,ES,ES=F,Actual < Forecast = Bullish
+CB Employment Trends Index,ES,ES=F,Actual > Forecast = Bullish
+3-Month Bill Auction,ZN,ZN=F,Actual < Forecast = Bullish
+6-Month Bill Auction,ZN,ZN=F,Actual < Forecast = Bullish
+Total Vehicle Sales,ES,ES=F,Actual > Forecast = Bullish
+Redbook (YoY),ES,ES=F,Actual > Forecast = Bullish

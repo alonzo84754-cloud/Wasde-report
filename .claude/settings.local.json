@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:tastyworks-api.readthedocs.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:developer.tastytrade.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:tastytrade.github.io)",
+      "Bash(python3:*)",
+      "Bash(py -c:*)",
+      "Bash(pip install:*)",
+      "WebFetch(domain:www.postman.com)",
+      "WebFetch(domain:www.investing.com)",
+      "WebFetch(domain:esmis.nal.usda.gov)"
+    ]
+  }
+}
