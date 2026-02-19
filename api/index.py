@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 import pandas as pd
+import numpy as np
 import os
 import sys
 import logging
@@ -21,6 +22,11 @@ app = FastAPI(title="WASDE News Failure API")
 
 def _utc_now_iso():
     return datetime.now(timezone.utc).isoformat()
+
+
+def _sanitize_df(df):
+    """Replace NaN/inf with None so JSON serialization doesn't crash."""
+    return df.replace({np.nan: None, np.inf: None, -np.inf: None})
 
 
 @app.get("/")
@@ -87,7 +93,7 @@ def deploy_internal_post(secret: str = ""):
 def get_wasde_failures():
     try:
         query = "SELECT * FROM market_reactions WHERE news_failure = 'YES' ORDER BY release_date DESC"
-        df = execute_query(query)
+        df = _sanitize_df(execute_query(query))
         return {"data": df.to_dict(orient="records"), "last_updated": _utc_now_iso()}
     except Exception as e:
         logger.error("wasde-failures error: %s", e)
@@ -98,7 +104,7 @@ def get_wasde_failures():
 def get_wasde_all():
     try:
         query = "SELECT * FROM market_reactions ORDER BY release_date DESC"
-        df = execute_query(query)
+        df = _sanitize_df(execute_query(query))
         return {"data": df.to_dict(orient="records"), "last_updated": _utc_now_iso()}
     except Exception as e:
         logger.error("wasde-all error: %s", e)
@@ -124,7 +130,9 @@ def get_realtime_monitor():
         df_wasde = execute_query(q_wasde)
         df_econ = execute_query(q_econ)
 
-        combined = pd.concat([df_wasde, df_econ], ignore_index=True)
+        frames = [df for df in [df_wasde, df_econ] if df is not None and not df.empty]
+        combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        combined = _sanitize_df(combined)
         return {"data": combined.to_dict(orient="records"), "last_updated": _utc_now_iso()}
     except Exception as e:
         logger.error("realtime-monitor error: %s", e)
@@ -138,6 +146,7 @@ def get_economic_calendar():
         query = "SELECT * FROM economic_calendar_today ORDER BY date ASC, time ASC"
         df = execute_query(query)
         if df is not None and not df.empty:
+            df = _sanitize_df(df)
             return {"data": df.to_dict(orient="records"), "last_updated": _utc_now_iso()}
         return {"data": [], "last_updated": _utc_now_iso()}
     except Exception:
@@ -173,7 +182,7 @@ def refresh_economic_calendar():
 def get_economic_failures():
     try:
         query = "SELECT * FROM economic_event_reactions WHERE news_failure = 'YES' ORDER BY release_date DESC"
-        df = execute_query(query)
+        df = _sanitize_df(execute_query(query))
         return {"data": df.to_dict(orient="records"), "last_updated": _utc_now_iso()}
     except Exception as e:
         logger.error("economic-failures error: %s", e)
@@ -184,7 +193,7 @@ def get_economic_failures():
 def get_economic_all():
     try:
         query = "SELECT * FROM economic_event_reactions ORDER BY release_date DESC"
-        df = execute_query(query)
+        df = _sanitize_df(execute_query(query))
         return {"data": df.to_dict(orient="records"), "last_updated": _utc_now_iso()}
     except Exception as e:
         logger.error("economic-all error: %s", e)

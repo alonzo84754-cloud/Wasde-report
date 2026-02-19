@@ -404,6 +404,7 @@ elif view == "Commodity Deep-Dive":
                     axis=1
                 )
 
+            # --- Row 1: Surprise vs Market Return | Commodity Price Action (50/50) ---
             col_chart, col_price = st.columns([1, 1])
 
             with col_chart:
@@ -439,55 +440,55 @@ elif view == "Commodity Deep-Dive":
                 st.info("Red zones indicate 'News Failures' (Divergent behavior).")
 
             with col_price:
-                display_date = selected_date if selected_date else (pd.to_datetime(df_sub_full['release_date']).dt.date.max() if not df_sub_full.empty else None)
+                st.subheader(f"{selected_commodity.capitalize()} Price Action")
 
-                if display_date:
-                    st.subheader(f"Price Action: {display_date}")
-                    report_row = df_sub_full[pd.to_datetime(df_sub_full['release_date']).dt.date == display_date]
-                    if not report_row.empty:
-                        report_row = report_row.iloc[0]
-                        p_updown = "UP" if report_row['return_1d'] > 0 else "DOWN"
-                        st.metric("1D Change", f"{report_row['return_1d']:.2%}", p_updown)
+                period_map = {
+                    "1D": {"period": "1d", "interval": "5m"},
+                    "2D": {"period": "2d", "interval": "15m"},
+                    "5D": {"period": "5d", "interval": "1h"},
+                    "6M": {"period": "6mo", "interval": "1d"},
+                    "1Y": {"period": "1y", "interval": "1d"}
+                }
 
-                        if str(report_row.get('news_failure')).upper() == 'YES':
-                            st.error(f"News Failure on {display_date}: Divergent behavior.")
+                if "chart_period" not in st.session_state:
+                    st.session_state.chart_period = "5D"
+
+                cols_p = st.columns(len(period_map))
+                for i, p in enumerate(period_map.keys()):
+                    if cols_p[i].button(p, key=f"period_{p}", type="primary" if st.session_state.chart_period == p else "secondary"):
+                        st.session_state.chart_period = p
+                        st.rerun()
+
+                ticker = TICKERS.get(selected_commodity)
+                try:
+                    p_params = period_map[st.session_state.chart_period]
+                    hist = get_intraday_prices(ticker, period=p_params["period"], interval=p_params["interval"])
+                    if hist is not None and not hist.empty:
+                        hist = hist.set_index("Date")
+                        if st.session_state.chart_period == "1Y":
+                            st.area_chart(hist['Close'], width="stretch")
                         else:
-                            st.success(f"Market aligned on {display_date}.")
+                            st.line_chart(hist['Close'], width="stretch")
+                except Exception as e:
+                    st.error(f"Chart error: {e}")
 
-                    st.divider()
-                    st.write(f"**{selected_commodity} Price Action**")
+            # --- Row 2: Price Action (full width) ---
+            display_date = selected_date if selected_date else (pd.to_datetime(df_sub_full['release_date']).dt.date.max() if not df_sub_full.empty else None)
 
-                    period_map = {
-                        "1D": {"period": "1d", "interval": "5m"},
-                        "2D": {"period": "2d", "interval": "15m"},
-                        "5D": {"period": "5d", "interval": "1h"},
-                        "6M": {"period": "6mo", "interval": "1d"},
-                        "1Y": {"period": "1y", "interval": "1d"}
-                    }
+            if display_date:
+                st.subheader(f"Price Action: {display_date}")
+                report_row = df_sub_full[pd.to_datetime(df_sub_full['release_date']).dt.date == display_date]
+                if not report_row.empty:
+                    report_row = report_row.iloc[0]
+                    p_updown = "UP" if report_row['return_1d'] > 0 else "DOWN"
+                    st.metric("1D Change", f"{report_row['return_1d']:.2%}", p_updown)
 
-                    if "chart_period" not in st.session_state:
-                        st.session_state.chart_period = "5D"
-
-                    cols_p = st.columns(len(period_map))
-                    for i, p in enumerate(period_map.keys()):
-                        if cols_p[i].button(p, key=f"period_{p}", type="primary" if st.session_state.chart_period == p else "secondary"):
-                            st.session_state.chart_period = p
-                            st.rerun()
-
-                    ticker = TICKERS.get(selected_commodity)
-                    try:
-                        p_params = period_map[st.session_state.chart_period]
-                        hist = get_intraday_prices(ticker, period=p_params["period"], interval=p_params["interval"])
-                        if hist is not None and not hist.empty:
-                            hist = hist.set_index("Date")
-                            if st.session_state.chart_period == "1Y":
-                                st.area_chart(hist['Close'], width="stretch")
-                            else:
-                                st.line_chart(hist['Close'], width="stretch")
-                    except Exception as e:
-                        st.error(f"Chart error: {e}")
-                else:
-                    st.info("No report data available.")
+                    if str(report_row.get('news_failure')).upper() == 'YES':
+                        st.error(f"News Failure on {display_date}: Divergent behavior.")
+                    else:
+                        st.success(f"Market aligned on {display_date}.")
+            else:
+                st.info("No report data available.")
 
             st.divider()
             st.subheader(f"Timeline of {selected_commodity.capitalize()} Reports")

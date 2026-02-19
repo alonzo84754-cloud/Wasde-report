@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import re
 from datetime import datetime
-from database_manager import save_to_db, clear_table
+from database_manager import replace_table_data
 
 # Actual WASDE release dates from USDA (report always at 12:00 PM ET)
 # Sources: USDA official schedule, filenames from archive, news articles
@@ -175,8 +175,7 @@ def process_all_reports():
                     if parsed: results.append(parsed)
     if results:
         df = pd.DataFrame(results).sort_values('report_date')
-        clear_table('wasde_reports')
-        save_to_db(df, 'wasde_reports', if_exists='append')
+        replace_table_data(df, 'wasde_reports')
 
 if __name__ == "__main__":
     process_all_reports()
