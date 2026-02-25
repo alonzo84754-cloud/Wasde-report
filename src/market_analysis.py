@@ -62,6 +62,7 @@ def analyze_reactions():
 
     commodities = {
         "cotton": "CT=F",
+        "coffee": "KC=F",
         "sugar": "SB=F",
         "wheat": "ZW=F",
         "corn": "ZC=F",

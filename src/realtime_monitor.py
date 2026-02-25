@@ -16,6 +16,7 @@ _poll_circuit = CircuitBreaker(failure_threshold=5, recovery_timeout=30, name="m
 # Instruments to monitor during the 12:00 PM - 4:00 PM window
 MONITOR_LIST = {
     'Cotton': 'CT=F',
+    'Coffee': 'KC=F',
     'Corn': 'ZC=F',
     'Wheat': 'ZW=F',
     'Soybeans': 'ZS=F',
